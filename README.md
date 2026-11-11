@@ -2,6 +2,18 @@
 
 실시간 macOS 화면 위에 투명한 창을 올려 무지개 색으로 자유롭게 판서하는 Swift / SwiftUI MVP입니다. 외부 의존성 없이 앱 코드는 Swift 파일 두 개로 구성했습니다.
 
+## Apple Silicon 릴리즈 설치
+
+[GitHub Releases](https://github.com/thoughtest/vivebrush/releases)에서 **arm64** 패키지를 받으세요. 비공개 저장소이므로 접근 권한이 있는 GitHub 계정으로 로그인해야 합니다.
+
+- **`.dmg`**: 열어서 `ViveBrush.app`을 `Applications` 폴더로 드래그한 뒤 실행합니다.
+- **`.app.zip`**: 압축을 풀면 `ViveBrush.app`이 나옵니다. 응용 프로그램 폴더로 옮긴 뒤 실행합니다.
+- **`SHA256SUMS.txt`**: 다운로드한 두 패키지의 SHA-256 체크섬입니다.
+
+대상은 **Apple Silicon (M1 이상), macOS 14 이상**이며 Intel Mac용 바이너리는 포함하지 않습니다. 설치 후에는 Xcode나 Swift가 필요하지 않습니다.
+
+현재 패키지는 **ad-hoc 서명한 테스트 빌드**이며 Developer ID 서명과 Apple 공증을 포함하지 않습니다. 처음 실행할 때 macOS에서 개발자를 확인할 수 없다는 경고가 표시될 수 있습니다. 출처와 파일을 신뢰하는 경우 시스템 설정 → 개인정보 보호 및 보안에서 해당 앱의 **확인 없이 열기(Open Anyway)**를 선택할 수 있습니다. 자세한 동작은 [Apple의 앱 실행 안내](https://support.apple.com/en-us/102445)를 확인하세요. 공증된 배포본을 만들려면 [Developer ID 서명과 Apple 공증](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)이 필요합니다.
+
 ## 바로 실행
 
 macOS 14 Sonoma 이상, Swift 5.9 이상의 Command Line Tools 또는 Xcode가 필요합니다.
@@ -24,7 +36,10 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 ./scripts/build.sh          # build/ViveBrush.app 생성
 ./scripts/run.sh release    # 최적화 빌드 후 실행
 ./scripts/test.sh           # 드로잉 상태·투명 배경 검증 (Xcode / XCTest 불필요)
+./scripts/package.sh        # Apple Silicon용 DMG, APP ZIP, 체크섬 생성
 ```
+
+배포 파일은 `dist/<버전>/`에 생성됩니다. 패키징은 별도 `build/arm64/ViveBrush.app`을 사용하므로 기본 개발 앱이 실행 중이어도 가능합니다. `./scripts/build.sh release arm64`로 arm64 앱 번들만 만들 수도 있습니다. 패키지 버전은 `Resources/Info.plist`의 `CFBundleShortVersionString`을 따릅니다.
 
 앱이 종료된 상태라면 `open build/ViveBrush.app --args --annotate`로 실행 직후 판서를 시작할 수도 있습니다.
 
