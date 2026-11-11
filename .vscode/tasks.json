@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ViveBrush: Build",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/build.sh",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "ViveBrush: Run",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/run.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "ViveBrush: Test",
+      "type": "process",
+      "command": "${workspaceFolder}/scripts/test.sh",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
