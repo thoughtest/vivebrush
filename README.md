@@ -1,10 +1,37 @@
 # ViveBrush
 
-실시간 macOS 화면 위에 투명한 창을 올려 무지개 색으로 자유롭게 판서하는 Swift / SwiftUI MVP입니다. 외부 의존성 없이 앱 코드는 Swift 파일 두 개로 구성했습니다.
+실시간 macOS 화면 위에 투명한 창을 올려 선택한 색으로 자유롭게 판서하는 Swift / SwiftUI 앱입니다. 업데이트 확인·설치에는 [Sparkle](https://sparkle-project.org/) 프레임워크를 사용합니다.
+
+## 개인 Mac에서 작업 재개
+
+현재 저장소는 **비공개**이며 게시된 릴리즈는 **v0.1.0**입니다. 코드의 v0.2.0 / 빌드 3은 미배포 상태입니다. 자동 색상 기본 끄기·수동 색 선택과 앱 내 업데이트 UI가 구현되어 있습니다. 업무용 Mac에서는 추가 서명과 배포를 중단했습니다.
+
+개인 Mac의 기존 체크아웃에서 다음을 실행하세요. 처음 받는 경우에는 먼저 본인 GitHub 인증으로 `thoughtest/vivebrush`를 clone하세요.
+
+```sh
+cd ~/code/personal/vivebrush
+git pull --ff-only
+swift package resolve
+./scripts/test.sh
+./scripts/run.sh
+```
+
+앱 실행과 드로잉 검증은 업데이트 서명 키 없이 가능합니다. **업무용 Mac에서 사용한 공개 키는 비워두었으며**, 현재 개발 빌드에서 업데이트 확인을 누르면 배포 설정이 없는 빌드라는 안내를 표시합니다. 개인 Mac에서 새 키를 설정한 뒤 재빌드하면 업데이트를 준비할 수 있습니다. 개인 키나 키체인 파일은 Git으로 옮기지 않습니다.
+
+배포 준비를 재개하기로 한 개인 Mac에서만 다음을 실행하세요. 이 명령은 키체인에 업데이트 서명 키를 만들고, 공개 키만 `Resources/Info.plist`에 반영합니다.
+
+```sh
+./scripts/setup-update-key.sh --personal-mac
+./scripts/package.sh
+```
+
+새 키를 설정한 뒤 아래 업데이트 배포 절차에 따라 피드를 서명하고 설치·재시작을 다시 검증하세요. 공개 키를 변경한 경우에는 앱 패키지도 반드시 다시 만들어야 합니다. 현재 저장소는 비공개라 공개 업데이트 피드는 동작하지 않습니다. 저장소 공개 전환 또는 별도 공개 배포 경로는 사용자 결정 후 진행하세요.
+
+이전에 드로잉 검증 8개, Release 빌드, 임시 키와 로컬 피드를 사용한 최신 버전 안내·변조 피드 차단·0.1.99 테스트본 → 0.2.0 설치 및 재시작을 확인했습니다. 실제 공개 피드 게시와 v0.2.0 릴리즈는 완료하지 않았습니다. `build/`, `dist/`, 테스트용 앱·피드와 개인 키는 이관 대상에 포함하지 않습니다.
 
 ## Apple Silicon 릴리즈 설치
 
-[GitHub Releases](https://github.com/thoughtest/vivebrush/releases)에서 **arm64** 패키지를 받으세요. 비공개 저장소이므로 접근 권한이 있는 GitHub 계정으로 로그인해야 합니다.
+[GitHub Releases](https://github.com/thoughtest/vivebrush/releases)에서 **arm64** 패키지를 받으세요. 저장소를 공개하면 로그인 없이 다운로드할 수 있습니다.
 
 - **`.dmg`**: 열어서 `ViveBrush.app`을 `Applications` 폴더로 드래그한 뒤 실행합니다.
 - **`.app.zip`**: 압축을 풀면 `ViveBrush.app`이 나옵니다. 응용 프로그램 폴더로 옮긴 뒤 실행합니다.
@@ -13,6 +40,14 @@
 대상은 **Apple Silicon (M1 이상), macOS 14 이상**이며 Intel Mac용 바이너리는 포함하지 않습니다. 설치 후에는 Xcode나 Swift가 필요하지 않습니다.
 
 현재 패키지는 **ad-hoc 서명한 테스트 빌드**이며 Developer ID 서명과 Apple 공증을 포함하지 않습니다. 처음 실행할 때 macOS에서 개발자를 확인할 수 없다는 경고가 표시될 수 있습니다. 출처와 파일을 신뢰하는 경우 시스템 설정 → 개인정보 보호 및 보안에서 해당 앱의 **확인 없이 열기(Open Anyway)**를 선택할 수 있습니다. 자세한 동작은 [Apple의 앱 실행 안내](https://support.apple.com/en-us/102445)를 확인하세요. 공증된 배포본을 만들려면 [Developer ID 서명과 Apple 공증](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)이 필요합니다.
+
+## 앱에서 업데이트
+
+연필 메뉴 → **업데이트 확인…**에서 현재 버전을 보고 **업데이트 확인**을 누르세요. 새 버전이 있으면 다운로드·설치·재시작을 진행할 수 있습니다. 최신 버전이면 해당 사실을 표시하고, 다운로드 취소와 설치 연기도 업데이트 창에서 처리합니다. 사용자가 확인하기 전에는 자동으로 다운로드하거나 설치하지 않습니다.
+
+업데이트는 공개 저장소의 `updates/appcast.xml`과 공개 릴리즈 파일을 사용하므로 **GitHub 토큰이나 로그인은 필요하지 않습니다**. 저장소가 비공개인 동안에는 이 공개 피드에 접근할 수 없습니다. 업데이트 정보와 ZIP은 Ed25519 서명으로 검증하며, 변조되거나 서명이 없는 파일은 설치하지 않습니다. 이 서명은 Apple 공증과 별개입니다.
+
+v0.1.0에는 업데이트 기능이 없으므로 업데이트 기능이 포함된 다음 배포본을 한 번 직접 설치해야 합니다. 이후 버전부터 앱 안에서 업데이트할 수 있습니다. DMG 안에서 실행 중이라면 앱을 응용 프로그램 폴더로 먼저 옮기세요.
 
 ## 바로 실행
 
@@ -57,12 +92,17 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 `⌥Tab`을 다른 앱이 사용 중이면 전역 단축키를 `⌃⌥Tab`으로 등록하며 현재 단축키는 연필 메뉴에 표시합니다. 둘 다 등록할 수 없어도 메뉴에서 전환할 수 있습니다. 실행 취소·지우기·종료 키는 판서 앱이 활성화된 동안만 처리합니다. 한글 입력 상태에서도 물리 키 위치로 동작합니다.
 
-선 하나는 마우스를 누른 순간부터 뗄 때까지입니다. 색은 **빨강 → 주황 → 노랑 → 초록 → 파랑 → 보라** 순서로 바뀌고 여섯 색을 반복합니다. 클릭만 해도 점 하나를 그립니다. 실행 취소는 색 순서를 되돌리지 않으며, 모두 지우기와 새 판서 세션은 빨강부터 시작합니다. 상단 도구 모음의 흰 테두리가 다음 선 색입니다.
+**자동 색상은 기본적으로 꺼져 있습니다.** 상단 도구 모음에서 색상 원을 클릭하면 해당 색으로 계속 그립니다. 흰 테두리는 다음 선에 사용할 색을 나타냅니다.
+
+도구 모음이나 연필 메뉴의 **자동 색상**을 켜면 선 하나를 마칠 때마다 **빨강 → 주황 → 노랑 → 초록 → 파랑 → 보라** 순서로 바뀝니다. 끄면 현재 선택된 색으로 고정됩니다. 선 하나는 마우스를 누른 순간부터 뗄 때까지이며, 클릭만 해도 점 하나를 그립니다. 이미 그린 선의 색은 옵션을 바꿔도 유지됩니다.
+
+실행 취소·모두 지우기·판서 종료 후 다시 시작해도 선택한 색과 자동 색상 옵션을 유지합니다. 앱을 새로 실행하면 빨강·자동 색상 끄기로 시작합니다.
 
 ## 동작과 파일 구성
 
 - [ViveBrushApp.swift](Sources/ViveBrush/ViveBrushApp.swift): 메뉴 막대 앱, 전역 토글, 키 입력, 투명 NSWindow와 모드 전환.
 - [ContentView.swift](Sources/ViveBrush/ContentView.swift): 투명 SwiftUI Canvas, 선·색상 상태, 간단한 도구 모음.
+- [AppUpdater.swift](Sources/ViveBrush/AppUpdater.swift): 업데이트 창과 Sparkle 연결. 토큰을 읽거나 저장하지 않습니다.
 - [Info.plist](Resources/Info.plist): 앱 번들 식별자, 최소 OS, `LSUIElement` 설정.
 - [scripts](scripts): Swift Package를 빌드하고 실행 가능한 `.app`으로 포장하는 스크립트.
 
@@ -74,19 +114,32 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 `Package.swift`를 Xcode로 열 수 있습니다. 메뉴 막대 앱으로 실행하려면 위 스크립트로 생성한 `.app`을 사용하세요.
 
-새 macOS App 프로젝트에 Swift 파일 두 개를 넣는 경우 다음을 설정하세요.
+새 macOS App 프로젝트에 `Sources/ViveBrush`의 Swift 파일을 넣는 경우 다음을 설정하세요.
 
 1. Deployment Target: **macOS 14.0 이상**.
 2. Signing & Capabilities: **App Sandbox 제거 / 비활성화**. 스크립트 빌드는 Sandbox를 사용하지 않습니다.
 3. Info: **Application is agent (UIElement) = YES** (`LSUIElement`). Dock 아이콘 없이 메뉴 막대에서 실행됩니다.
 4. 기존 자동 생성 `@main App` 파일은 제거하고, Bundle Identifier를 **com.vivebrush.app**으로 유지하세요.
 5. 화면 녹화 권한은 필요하지 않습니다. 전역 토글은 Carbon `RegisterEventHotKey`로 처리하므로 별도의 접근성 권한도 요구하지 않습니다.
+6. Sparkle 2.10.1 패키지를 추가하고 프레임워크를 Embed & Sign으로 포함하세요. 제공된 `Info.plist`의 `SUFeedURL`, `SUPublicEDKey`, 서명 검증 설정도 유지하세요. 저장소의 빌드 스크립트는 프레임워크 복사와 앱 서명을 처리합니다.
+
+## 업데이트 배포
+
+1. `Info.plist`의 표시 버전과 빌드 번호를 모두 올립니다. 빌드 번호는 항상 증가해야 합니다.
+2. `./scripts/package.sh`로 arm64 앱과 패키지를 생성합니다.
+3. `./scripts/create-appcast.sh 'https://github.com/thoughtest/vivebrush/releases/download/v<버전>/ViveBrush-<버전>-arm64.app.zip'`로 ZIP과 업데이트 피드에 서명합니다. 결과는 `dist/<버전>/appcast.xml`입니다.
+4. 해당 버전의 태그와 GitHub 릴리즈를 만들고 DMG, APP ZIP, `appcast.xml`, `SHA256SUMS.txt`를 업로드합니다.
+5. 게시한 파일을 검증한 뒤 서명된 `appcast.xml`을 `updates/appcast.xml`로 그대로 복사하여 main에 커밋·push합니다. 서명 후 XML 내용을 편집하면 서명이 무효화됩니다.
+
+업데이트 서명 개인 키는 개인 배포 담당 Mac 키체인의 `com.vivebrush.app.updates` 계정으로 보관합니다. 저장소와 앱에는 공개 키만 포함합니다. **현재처럼 최초 배포 전에는 개인 Mac에서 새 키를 설정합니다.** 배포가 시작된 뒤에는 개인 키를 잃으면 기존 설치본에 대한 업데이트 서명을 만들 수 없으므로 안전하게 백업해야 합니다. 배포 이후 다른 Mac으로 옮길 때는 새 키로 교체하지 말고 원래 키를 Sparkle 도구로 가져오세요. 자세한 절차는 [Sparkle 배포 문서](https://sparkle-project.org/documentation/publishing/)를 참고하세요.
+
+배포 파일에 서명할 때는 macOS가 `sign_update`의 키체인 접근을 요청할 수 있습니다. 배포 담당자가 Mac 로그인 암호를 해당 시스템 창에 직접 입력해 허용합니다. 앱을 설치하거나 업데이트하는 사용자에게는 이 서명 개인 키와 키체인 암호가 필요하지 않습니다.
 
 ## 수동 확인
 
 1. 대기 모드에서 다른 앱 클릭·드래그·키 입력이 동작하는지 확인합니다.
 2. 시계나 동영상이 보이는 상태에서 `⌥Tab`을 눌러 판서 중에도 배경이 계속 움직이는지 확인합니다.
-3. 선 7개를 그려 여섯 색과 빨강 반복을 확인합니다. `⌘Z`로 마지막 선만 지웁니다.
-4. Delete와 Backspace로 모두 지운 뒤 첫 선이 빨강인지 확인합니다.
+3. 기본 상태에서 여러 선을 그려 모두 빨강인지 확인합니다. 파랑색 원을 선택하면 계속 파랑으로 그려지는지 확인합니다. 자동 색상을 켜고 선을 그려 여섯 색의 순환을 확인한 뒤, 다시 끄면 색이 고정되는지 확인합니다.
+4. `⌘Z`로 마지막 선만 지웁니다. Delete와 Backspace로 모두 지워도 선택한 색과 자동 색상 옵션이 유지되는지 확인합니다.
 5. Esc, Q, 전역 토글, 완료 버튼으로 각각 종료하고 밑의 앱 조작이 복구되는지 확인합니다.
 6. 여러 모니터·Retina·전체 화면 앱에서도 배경이 그대로 보이며 마우스 위치에 선이 그려지는지 확인합니다.

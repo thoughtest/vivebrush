@@ -7,13 +7,15 @@ struct DrawingStateChecks {
 
     @MainActor
     static func main() throws {
+        try fixedColorByDefault()
         try colorRotation()
+        try toggleDuringStroke()
         try undoAcrossDisplays()
         try clearWhileDrawing()
         try cancelledGestureDoesNotReturn()
         try singleClick()
         try transparentBackground()
-        print("PASS: 6 checks (color rotation, undo, clear, cancelled gesture, single click, transparency)")
+        print("PASS: 8 checks (fixed color default, color rotation, toggle, undo, clear, cancelled gesture, single click, transparency)")
     }
 
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) throws {
@@ -21,8 +23,32 @@ struct DrawingStateChecks {
     }
 
     @MainActor
+    static func fixedColorByDefault() throws {
+        let drawing = DrawingState()
+        try check(!drawing.isColorRotationEnabled, "Automatic color rotation must be off by default")
+        for _ in 0..<3 {
+            drawing.draw(at: .zero, start: .zero, on: 1)
+            drawing.finishStroke()
+        }
+        try check(drawing.strokes.map(\.colorIndex) == [0, 0, 0], "Default strokes did not stay red")
+        drawing.selectColor(4)
+        for _ in 0..<3 {
+            drawing.draw(at: .zero, start: .zero, on: 1)
+            drawing.finishStroke()
+        }
+        try check(drawing.strokes.suffix(3).map(\.colorIndex) == [4, 4, 4], "Selected blue did not stay fixed")
+        drawing.selectColor(-1)
+        drawing.selectColor(DrawingState.palette.count)
+        try check(drawing.nextColorIndex == 4, "An invalid palette selection changed the color")
+        drawing.clear()
+        try check(drawing.nextColorIndex == 4 && !drawing.isColorRotationEnabled,
+                  "Clearing strokes changed fixed-color settings")
+    }
+
+    @MainActor
     static func colorRotation() throws {
         let drawing = DrawingState()
+        drawing.isColorRotationEnabled = true
         for index in 0..<8 {
             drawing.draw(at: CGPoint(x: 10, y: 20), start: .zero, on: 1)
             drawing.draw(at: CGPoint(x: 30, y: 40), start: .zero, on: 1)
@@ -36,6 +62,25 @@ struct DrawingStateChecks {
                   "Stroke lost mouse points")
         drawing.finishStroke()
         try check(drawing.strokes.count == 8, "Empty mouse up added a stroke")
+    }
+
+    @MainActor
+    static func toggleDuringStroke() throws {
+        let drawing = DrawingState()
+        drawing.selectColor(2)
+        drawing.draw(at: .zero, start: .zero, on: 1)
+        drawing.isColorRotationEnabled = true
+        try check(drawing.currentStroke?.colorIndex == 2, "Enabling rotation recolored the current stroke")
+        drawing.finishStroke()
+        try check(drawing.nextColorIndex == 3, "Enabled rotation did not advance after mouse up")
+        drawing.draw(at: .zero, start: .zero, on: 1)
+        drawing.isColorRotationEnabled = false
+        drawing.finishStroke()
+        drawing.draw(at: .zero, start: .zero, on: 1)
+        drawing.finishStroke()
+        try check(drawing.strokes.map(\.colorIndex) == [2, 3, 3], "Disabling rotation did not keep the current color")
+        drawing.isColorRotationEnabled = true
+        try check(!DrawingState().isColorRotationEnabled, "A new app state did not default to rotation off")
     }
 
     @MainActor
@@ -57,12 +102,15 @@ struct DrawingStateChecks {
     @MainActor
     static func clearWhileDrawing() throws {
         let drawing = DrawingState()
+        drawing.selectColor(4)
+        drawing.isColorRotationEnabled = true
         drawing.draw(at: .zero, start: .zero, on: 1)
         drawing.finishStroke()
         drawing.draw(at: CGPoint(x: 1, y: 1), start: .zero, on: 1)
         drawing.clear()
         try check(drawing.strokes.isEmpty && drawing.currentStroke == nil, "Clear left a stroke behind")
-        try check(drawing.nextColorIndex == 0, "Clear did not reset the palette")
+        try check(drawing.nextColorIndex == 5 && drawing.isColorRotationEnabled,
+                  "Clear did not preserve the selected color and rotation setting")
         drawing.finishStroke()
         try check(drawing.strokes.isEmpty, "A cleared stroke was committed")
     }

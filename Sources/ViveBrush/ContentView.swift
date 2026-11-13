@@ -18,6 +18,12 @@ final class DrawingState: ObservableObject {
     @Published private(set) var strokes: [Stroke] = []
     @Published private(set) var currentStroke: Stroke?
     @Published private(set) var nextColorIndex = 0
+    @Published var isColorRotationEnabled = false
+
+    func selectColor(_ index: Int) {
+        guard Self.palette.indices.contains(index) else { return }
+        nextColorIndex = index
+    }
 
     func draw(at point: CGPoint, start: CGPoint, on displayID: CGDirectDisplayID,
               beginsStroke: Bool = true) {
@@ -33,7 +39,9 @@ final class DrawingState: ObservableObject {
         guard let currentStroke else { return }
         strokes.append(currentStroke)
         self.currentStroke = nil
-        nextColorIndex = (nextColorIndex + 1) % Self.palette.count
+        if isColorRotationEnabled {
+            nextColorIndex = (currentStroke.colorIndex + 1) % Self.palette.count
+        }
     }
 
     func undo() {
@@ -44,7 +52,16 @@ final class DrawingState: ObservableObject {
     func clear() {
         strokes.removeAll()
         currentStroke = nil
-        nextColorIndex = 0
+    }
+}
+
+struct ColorRotationToggle: View {
+    @ObservedObject var drawing: DrawingState
+
+    var body: some View {
+        Toggle("자동 색상", isOn: $drawing.isColorRotationEnabled)
+            .help("켜면 선 하나를 마칠 때마다 다음 색상으로 바뀝니다")
+            .accessibilityIdentifier("colorRotationToggle")
     }
 }
 
@@ -93,15 +110,23 @@ struct ContentView: View {
             Divider().frame(height: 20)
             HStack(spacing: 5) {
                 ForEach(DrawingState.palette.indices, id: \.self) { index in
-                    Circle()
-                        .fill(DrawingState.palette[index])
-                        .frame(width: 11, height: 11)
-                        .padding(3)
-                        .overlay(Circle().strokeBorder(.white,
-                            lineWidth: index == drawing.nextColorIndex ? 2 : 0))
+                    Button { drawing.selectColor(index) } label: {
+                        Circle()
+                            .fill(DrawingState.palette[index])
+                            .frame(width: 11, height: 11)
+                            .padding(3)
+                            .overlay(Circle().strokeBorder(.white,
+                                lineWidth: index == drawing.nextColorIndex ? 2 : 0))
+                    }
+                    .help("\(DrawingState.colorNames[index])색 선택")
+                    .accessibilityLabel("\(DrawingState.colorNames[index])색")
+                    .accessibilityValue(index == drawing.nextColorIndex ? "선택됨" : "")
                 }
             }
-            .accessibilityLabel("다음 선: \(DrawingState.colorNames[drawing.nextColorIndex])")
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("선 색상")
+            ColorRotationToggle(drawing: drawing)
+                .toggleStyle(.switch)
             Button(action: drawing.undo) { Image(systemName: "arrow.uturn.backward") }
                 .help("실행 취소 (⌘Z)")
                 .disabled(drawing.strokes.isEmpty && drawing.currentStroke == nil)

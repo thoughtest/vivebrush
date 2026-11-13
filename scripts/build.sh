@@ -32,8 +32,13 @@ fi
 swift build "${build_args[@]}"
 binary_dir="$(swift build "${build_args[@]}" --show-bin-path)"
 mkdir -p "$app_dir/Contents/MacOS"
+mkdir -p "$app_dir/Contents/Frameworks"
+mkdir -p "$app_dir/Contents/Resources"
 cp "$binary_dir/ViveBrush" "$app_dir/Contents/MacOS/ViveBrush"
 cp Resources/Info.plist "$app_dir/Contents/Info.plist"
+ditto "$project_dir/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" \
+    "$app_dir/Contents/Frameworks/Sparkle.framework"
+cp "$project_dir/.build/checkouts/Sparkle/LICENSE" "$app_dir/Contents/Resources/Sparkle-LICENSE.txt"
 # A local ad-hoc signature is sufficient; no Apple Developer account is needed.
 codesign --force --sign - --identifier com.vivebrush.app "$app_dir"
 echo "Built: $app_dir"

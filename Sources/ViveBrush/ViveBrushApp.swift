@@ -13,6 +13,13 @@ struct ViveBrushApp: App {
             }
             Text("전역 단축키: \(appDelegate.hotKeyLabel)")
             Divider()
+            ColorRotationToggle(drawing: appDelegate.drawing)
+            Divider()
+            Button("업데이트 확인…") {
+                appDelegate.returnToStandby()
+                appDelegate.updater.showWindow()
+            }
+            Divider()
             Text("⌘Z 실행 취소 · Delete 모두 지우기")
             Text("Esc / Q 판서 종료")
             Divider()
@@ -29,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published private(set) var mode: Mode = .standby
     @Published private(set) var hotKeyLabel = "⌥Tab"
     let drawing = DrawingState()
+    let updater = AppUpdater()
 
     private var windows: [NSWindow] = []
     private var keyMonitor: Any?
@@ -62,6 +70,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             name: NSApplication.didChangeScreenParametersNotification, object: nil
         )
         if ProcessInfo.processInfo.arguments.contains("--annotate") { toggleAnnotation() }
+        if ProcessInfo.processInfo.arguments.contains("--updates") {
+            DispatchQueue.main.async { self.updater.showWindow() }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
