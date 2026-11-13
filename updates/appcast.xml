@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>ViveBrush Updates</title>
+    <item>
+      <title>ViveBrush 0.2.0</title>
+      <pubDate>Fri, 13 Nov 2026 13:31:45 GMT</pubDate>
+      <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+      <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <description>서명된 앱 내 업데이트 확인·설치·재시작, 수동 색 선택과 자동 색상 옵션을 제공합니다.</description>
+      <enclosure url="https://github.com/thoughtest/vivebrush/releases/download/v0.2.0/ViveBrush-0.2.0-arm64.app.zip" length="1174300" type="application/octet-stream" sparkle:edSignature="CP0mrr155eniUYKtVk1X7oI7aCSbzULK/JFQWEQANja9T34W7OL1Q6dd4PzN82NGJraUMr7VJ0gkL63srwjuCg=="></enclosure>
+    </item>
+  </channel>
+</rss><!-- sparkle-signatures:
+edSignature: vO+tGdAgVQsj4aVH8gJoc5DUfutTvuzTyPlYlhRRA80LRKVYMdCa6d8kwDWIZnW2SmViqitM2CA8u7NP1Uf9CA==
+length: 1265
+-->

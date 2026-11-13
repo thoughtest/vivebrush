@@ -2,40 +2,36 @@
 
 실시간 macOS 화면 위에 투명한 창을 올려 선택한 색으로 자유롭게 판서하는 Swift / SwiftUI 앱입니다. 업데이트 확인·설치에는 [Sparkle](https://sparkle-project.org/) 프레임워크를 사용합니다.
 
-## 개인 Mac에서 작업 재개
+## 개발 및 서명 상태
 
-현재 저장소는 **비공개**이며 게시된 릴리즈는 **v0.1.0**입니다. 코드의 v0.2.0 / 빌드 3은 미배포 상태입니다. 자동 색상 기본 끄기·수동 색 선택과 앱 내 업데이트 UI가 구현되어 있습니다. 업무용 Mac에서는 추가 서명과 배포를 중단했습니다.
+현재 버전은 **v0.2.0 / 빌드 4**입니다. 소스와 릴리즈는 공개 저장소에서 제공하며, 업데이트 확인에 GitHub 로그인이 필요하지 않습니다. 앱 내 업데이트 확인·다운로드·설치·재시작과 수동 색 선택을 지원합니다. 변경 사항은 [릴리즈 노트](RELEASE_NOTES.md)를 확인하세요.
 
-개인 Mac의 기존 체크아웃에서 다음을 실행하세요. 처음 받는 경우에는 먼저 본인 GitHub 인증으로 `thoughtest/vivebrush`를 clone하세요.
+이 프로젝트는 개인 Mac에서 다음 두 종류의 서명을 사용합니다.
+
+- **앱 번들**: Apple Developer 계정 없이 가능한 ad-hoc 서명. Developer ID 서명 및 Apple 공증은 포함하지 않습니다.
+- **업데이트 ZIP과 피드**: 개인 Mac 키체인의 Ed25519 키로 서명. 앱에는 검증용 공개 키만 들어가며 개인 키는 저장소나 패키지에 포함하지 않습니다.
 
 ```sh
-cd ~/code/personal/vivebrush
-git pull --ff-only
 swift package resolve
 ./scripts/test.sh
 ./scripts/run.sh
 ```
 
-앱 실행과 드로잉 검증은 업데이트 서명 키 없이 가능합니다. **업무용 Mac에서 사용한 공개 키는 비워두었으며**, 현재 개발 빌드에서 업데이트 확인을 누르면 배포 설정이 없는 빌드라는 안내를 표시합니다. 개인 Mac에서 새 키를 설정한 뒤 재빌드하면 업데이트를 준비할 수 있습니다. 개인 키나 키체인 파일은 Git으로 옮기지 않습니다.
-
-배포 준비를 재개하기로 한 개인 Mac에서만 다음을 실행하세요. 이 명령은 키체인에 업데이트 서명 키를 만들고, 공개 키만 `Resources/Info.plist`에 반영합니다.
+이미 배포에 사용하는 키가 있다면 새 키를 만들지 말고 원래 키를 가져와야 합니다. 배포 담당 개인 Mac에서 키를 처음 설정하거나 기존 키와 공개 키가 일치하는지 확인할 때만 아래 명령을 사용하세요.
 
 ```sh
 ./scripts/setup-update-key.sh --personal-mac
-./scripts/package.sh
 ```
 
-새 키를 설정한 뒤 아래 업데이트 배포 절차에 따라 피드를 서명하고 설치·재시작을 다시 검증하세요. 공개 키를 변경한 경우에는 앱 패키지도 반드시 다시 만들어야 합니다. 현재 저장소는 비공개라 공개 업데이트 피드는 동작하지 않습니다. 저장소 공개 전환 또는 별도 공개 배포 경로는 사용자 결정 후 진행하세요.
-
-이전에 드로잉 검증 8개, Release 빌드, 임시 키와 로컬 피드를 사용한 최신 버전 안내·변조 피드 차단·0.1.99 테스트본 → 0.2.0 설치 및 재시작을 확인했습니다. 실제 공개 피드 게시와 v0.2.0 릴리즈는 완료하지 않았습니다. `build/`, `dist/`, 테스트용 앱·피드와 개인 키는 이관 대상에 포함하지 않습니다.
+빌드와 테스트, 배포본 검증에는 개인 키가 필요하지 않습니다. ZIP과 피드 **서명**에만 키체인 접근이 필요하며, 시스템 요청 창에 로그인 암호를 직접 입력해 허용합니다. 배포 키를 잃으면 기존 설치본에 업데이트를 제공할 수 없으므로 안전한 별도 백업이 필요합니다. 키를 다른 Mac으로 옮기는 절차는 [Sparkle 배포 문서](https://sparkle-project.org/documentation/publishing/)를 참고하세요.
 
 ## Apple Silicon 릴리즈 설치
 
-[GitHub Releases](https://github.com/thoughtest/vivebrush/releases)에서 **arm64** 패키지를 받으세요. 저장소를 공개하면 로그인 없이 다운로드할 수 있습니다.
+[GitHub Releases](https://github.com/thoughtest/vivebrush/releases)에서 **arm64** 패키지를 받으세요. 로그인 없이 다운로드할 수 있습니다.
 
 - **`.dmg`**: 열어서 `ViveBrush.app`을 `Applications` 폴더로 드래그한 뒤 실행합니다.
 - **`.app.zip`**: 압축을 풀면 `ViveBrush.app`이 나옵니다. 응용 프로그램 폴더로 옮긴 뒤 실행합니다.
-- **`SHA256SUMS.txt`**: 다운로드한 두 패키지의 SHA-256 체크섬입니다.
+- **`SHA256SUMS.txt`**: DMG, APP ZIP, 서명된 업데이트 피드의 SHA-256 체크섬입니다.
 
 대상은 **Apple Silicon (M1 이상), macOS 14 이상**이며 Intel Mac용 바이너리는 포함하지 않습니다. 설치 후에는 Xcode나 Swift가 필요하지 않습니다.
 
@@ -45,7 +41,7 @@ swift package resolve
 
 연필 메뉴 → **업데이트 확인…**에서 현재 버전을 보고 **업데이트 확인**을 누르세요. 새 버전이 있으면 다운로드·설치·재시작을 진행할 수 있습니다. 최신 버전이면 해당 사실을 표시하고, 다운로드 취소와 설치 연기도 업데이트 창에서 처리합니다. 사용자가 확인하기 전에는 자동으로 다운로드하거나 설치하지 않습니다.
 
-업데이트는 공개 저장소의 `updates/appcast.xml`과 공개 릴리즈 파일을 사용하므로 **GitHub 토큰이나 로그인은 필요하지 않습니다**. 저장소가 비공개인 동안에는 이 공개 피드에 접근할 수 없습니다. 업데이트 정보와 ZIP은 Ed25519 서명으로 검증하며, 변조되거나 서명이 없는 파일은 설치하지 않습니다. 이 서명은 Apple 공증과 별개입니다.
+업데이트는 공개 저장소의 `updates/appcast.xml`과 공개 릴리즈 파일을 사용하므로 **GitHub 토큰이나 로그인은 필요하지 않습니다**. 업데이트 정보와 ZIP은 Ed25519 서명으로 검증하며, 변조되거나 서명이 없는 파일은 설치하지 않습니다. 이 서명은 Apple 공증과 별개입니다.
 
 v0.1.0에는 업데이트 기능이 없으므로 업데이트 기능이 포함된 다음 배포본을 한 번 직접 설치해야 합니다. 이후 버전부터 앱 안에서 업데이트할 수 있습니다. DMG 안에서 실행 중이라면 앱을 응용 프로그램 폴더로 먼저 옮기세요.
 
@@ -70,8 +66,9 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 ```sh
 ./scripts/build.sh          # build/ViveBrush.app 생성
 ./scripts/run.sh release    # 최적화 빌드 후 실행
-./scripts/test.sh           # 드로잉 상태·투명 배경 검증 (Xcode / XCTest 불필요)
+./scripts/test.sh           # 드로잉, 업데이트 설정·오류 처리, 오래된 패키지 차단 검증
 ./scripts/package.sh        # Apple Silicon용 DMG, APP ZIP, 체크섬 생성
+./scripts/verify-release.sh # 피드 생성 후 공개 키로 서명·체크섬·앱 번들 검증
 ```
 
 배포 파일은 `dist/<버전>/`에 생성됩니다. 패키징은 별도 `build/arm64/ViveBrush.app`을 사용하므로 기본 개발 앱이 실행 중이어도 가능합니다. `./scripts/build.sh release arm64`로 arm64 앱 번들만 만들 수도 있습니다. 패키지 버전은 `Resources/Info.plist`의 `CFBundleShortVersionString`을 따릅니다.
@@ -128,12 +125,21 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 1. `Info.plist`의 표시 버전과 빌드 번호를 모두 올립니다. 빌드 번호는 항상 증가해야 합니다.
 2. `./scripts/package.sh`로 arm64 앱과 패키지를 생성합니다.
 3. `./scripts/create-appcast.sh 'https://github.com/thoughtest/vivebrush/releases/download/v<버전>/ViveBrush-<버전>-arm64.app.zip'`로 ZIP과 업데이트 피드에 서명합니다. 결과는 `dist/<버전>/appcast.xml`입니다.
-4. 해당 버전의 태그와 GitHub 릴리즈를 만들고 DMG, APP ZIP, `appcast.xml`, `SHA256SUMS.txt`를 업로드합니다.
-5. 게시한 파일을 검증한 뒤 서명된 `appcast.xml`을 `updates/appcast.xml`로 그대로 복사하여 main에 커밋·push합니다. 서명 후 XML 내용을 편집하면 서명이 무효화됩니다.
+4. `./scripts/verify-release.sh`로 실제 ZIP 내부의 버전·공개 키, ZIP/피드 서명, 체크섬, arm64 앱 코드 서명을 검증합니다. 개인 키나 키체인 접근 없이 실행됩니다. 소스 설정과 패키지가 다르면 피드 생성과 검증 모두 중단하므로 먼저 다시 패키징하세요.
+5. 해당 버전의 태그와 GitHub 릴리즈를 만들고 DMG, APP ZIP, `appcast.xml`, `SHA256SUMS.txt`를 업로드합니다.
+6. 게시한 파일을 검증한 뒤 서명된 `appcast.xml`을 `updates/appcast.xml`로 그대로 복사하여 main에 커밋·push합니다. 서명 후 XML 내용을 편집하면 서명이 무효화됩니다.
 
-업데이트 서명 개인 키는 개인 배포 담당 Mac 키체인의 `com.vivebrush.app.updates` 계정으로 보관합니다. 저장소와 앱에는 공개 키만 포함합니다. **현재처럼 최초 배포 전에는 개인 Mac에서 새 키를 설정합니다.** 배포가 시작된 뒤에는 개인 키를 잃으면 기존 설치본에 대한 업데이트 서명을 만들 수 없으므로 안전하게 백업해야 합니다. 배포 이후 다른 Mac으로 옮길 때는 새 키로 교체하지 말고 원래 키를 Sparkle 도구로 가져오세요. 자세한 절차는 [Sparkle 배포 문서](https://sparkle-project.org/documentation/publishing/)를 참고하세요.
+업데이트 서명 개인 키는 개인 배포 담당 Mac 키체인의 `com.vivebrush.app.updates` 계정으로 보관합니다. 저장소와 앱에는 공개 키만 포함합니다. 배포가 시작된 뒤에는 개인 키를 잃으면 기존 설치본에 대한 업데이트 서명을 만들 수 없으므로 안전하게 백업해야 합니다. 배포 이후 다른 Mac으로 옮길 때는 새 키로 교체하지 말고 원래 키를 Sparkle 도구로 가져오세요. 자세한 절차는 [Sparkle 배포 문서](https://sparkle-project.org/documentation/publishing/)를 참고하세요.
 
 배포 파일에 서명할 때는 macOS가 `sign_update`의 키체인 접근을 요청할 수 있습니다. 배포 담당자가 Mac 로그인 암호를 해당 시스템 창에 직접 입력해 허용합니다. 앱을 설치하거나 업데이트하는 사용자에게는 이 서명 개인 키와 키체인 암호가 필요하지 않습니다.
+
+## 검증
+
+`./scripts/test.sh`는 드로잉·투명 배경 8개 검사, Debug/Release 양쪽의 업데이트 주소·상태 메시지 검사, 오래된 패키지와 잘못된 다운로드 주소를 차단하는 5개 회귀 테스트를 실행합니다.
+
+개인 Mac에서 실제 서명 키와 로컬 HTTP 피드로 최신 버전 안내, 변조된 피드 차단, 설치 연기 후 재시도, **0.1.99 / 빌드 2 → 0.2.0 / 빌드 4 다운로드·설치·재시작**을 확인했습니다. 로컬 HTTP 피드 지정은 Debug 빌드의 `VIVEBRUSH_TEST_FEED` 환경 변수로만 허용하며 Release 빌드는 HTTPS 피드를 사용합니다. 테스트용 앱과 피드는 `build/`에만 생성하고 배포하지 않습니다.
+
+`./scripts/verify-release.sh`는 개인 키 없이 공개 키로 ZIP과 피드의 Ed25519 서명, 체크섬, 패키지 내부 버전·키, arm64 아키텍처, 앱 코드 서명을 검증합니다. `./scripts/verify-release.sh /path/to/downloaded-assets`로 다운로드한 릴리즈도 검증할 수 있습니다.
 
 ## 수동 확인
 
