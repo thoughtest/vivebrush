@@ -6,6 +6,8 @@
     <string>ko</string>
     <key>CFBundleExecutable</key>
     <string>ViveBrush</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.vivebrush.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -15,15 +17,17 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2.0</string>
+    <string>0.2.1</string>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 thoughtest</string>
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/thoughtest/vivebrush/main/updates/appcast.xml</string>
     <key>SUPublicEDKey</key>

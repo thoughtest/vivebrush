@@ -8,21 +8,22 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
 
     let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "개발 빌드"
     let currentBuild = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-    private var controller: SPUStandardUpdaterController!
+    private lazy var controller = SPUStandardUpdaterController(
+        startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil
+    )
     private var window: NSWindow?
     private var started = false
     private var completionStatus = "업데이트 확인을 마쳤습니다."
 
     override init() {
         super.init()
-        controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
     }
 
     func showWindow() {
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 480, height: 310),
-                styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false
+                styleMask: [.titled, .closable], backing: .buffered, defer: false
             )
             window.title = "ViveBrush 업데이트"
             window.isReleasedWhenClosed = false
@@ -33,23 +34,19 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
             window.center()
             self.window = window
         }
+        if window?.isMiniaturized == true { window?.deminiaturize(nil) }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
 
     func checkForUpdates() {
         guard !isBusy else { return }
-        guard let publicKey = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String,
-              Data(base64Encoded: publicKey)?.count == 32 else {
-            status = "이 개발 빌드에서는 업데이트를 사용할 수 없습니다. 릴리즈 페이지를 확인하세요."
-            return
-        }
-        guard let address = feedURLString(for: controller.updater), Self.isValidFeedURL(address) else {
-            status = "업데이트 서버 주소가 설정되지 않았습니다. 릴리즈 페이지를 확인하세요."
-            return
-        }
-        guard !Bundle.main.bundleURL.path.hasPrefix("/Volumes/") else {
-            status = "먼저 ViveBrush.app을 응용 프로그램 폴더로 옮겨 실행하세요."
+        if let error = Self.configurationError(
+            publicKey: Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String,
+            feedURL: feedURLString(for: controller.updater),
+            bundlePath: Bundle.main.bundleURL.path
+        ) {
+            status = error
             return
         }
         if !started {
@@ -69,6 +66,19 @@ final class AppUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         completionStatus = "업데이트 확인을 마쳤습니다."
         status = "새 버전을 확인하고 있습니다…"
         controller.checkForUpdates(nil)
+    }
+
+    static func configurationError(publicKey: String?, feedURL: String?, bundlePath: String) -> String? {
+        guard let publicKey, Data(base64Encoded: publicKey)?.count == 32 else {
+            return "이 개발 빌드에서는 업데이트를 사용할 수 없습니다. 릴리즈 페이지를 확인하세요."
+        }
+        guard let feedURL, isValidFeedURL(feedURL) else {
+            return "업데이트 서버 주소가 설정되지 않았습니다. 릴리즈 페이지를 확인하세요."
+        }
+        guard !bundlePath.hasPrefix("/Volumes/") else {
+            return "먼저 ViveBrush.app을 응용 프로그램 폴더로 옮겨 실행하세요."
+        }
+        return nil
     }
 
     static func isValidFeedURL(_ address: String) -> Bool {

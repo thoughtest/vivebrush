@@ -43,6 +43,26 @@ cp Resources/Info.plist "$staged_app/Contents/Info.plist"
 ditto "$project_dir/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework" \
     "$staged_app/Contents/Frameworks/Sparkle.framework"
 cp "$project_dir/.build/checkouts/Sparkle/LICENSE" "$staged_app/Contents/Resources/Sparkle-LICENSE.txt"
+if [[ -f "$project_dir/Resources/AppIcon.png" ]]; then
+    iconset_dir="$staging_dir/AppIcon.iconset"
+    mkdir -p "$iconset_dir"
+    for spec in \
+        "16:icon_16x16.png" \
+        "32:icon_16x16@2x.png" \
+        "32:icon_32x32.png" \
+        "64:icon_32x32@2x.png" \
+        "128:icon_128x128.png" \
+        "256:icon_128x128@2x.png" \
+        "256:icon_256x256.png" \
+        "512:icon_256x256@2x.png" \
+        "512:icon_512x512.png" \
+        "1024:icon_512x512@2x.png"; do
+        px="${spec%%:*}"
+        name="${spec#*:}"
+        sips -z "$px" "$px" "$project_dir/Resources/AppIcon.png" --out "$iconset_dir/$name" > /dev/null
+    done
+    iconutil -c icns "$iconset_dir" -o "$staged_app/Contents/Resources/AppIcon.icns"
+fi
 # A local ad-hoc signature is sufficient; no Apple Developer account is needed.
 codesign --force --sign - --identifier com.vivebrush.app "$staged_app"
 codesign --verify --deep --strict "$staged_app"
