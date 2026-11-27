@@ -238,11 +238,13 @@ jobs:
             draft_flag="--draft"
           fi
 
-          releases_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases")"
-          existing_status="$(printf '%s' "$releases_json" | python3 - "$TAG" <<'PY'
+          releases_file="${RUNNER_TEMP}/releases.json"
+          gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases" > "$releases_file"
+          existing_status="$(python3 - "$TAG" "$releases_file" <<'PY'
           import json, sys
-          tag = sys.argv[1]
-          pages = json.load(sys.stdin)
+          tag, releases_path = sys.argv[1], sys.argv[2]
+          with open(releases_path, encoding='utf-8') as fh:
+              pages = json.load(fh)
           matches = [rel for page in pages for rel in page if rel.get('tag_name') == tag]
           if not matches:
               print('none')
@@ -257,10 +259,11 @@ jobs:
             exit 1
           fi
           if [[ "$existing_status" == "draft" ]]; then
-            draft_ids="$(printf '%s' "$releases_json" | python3 - "$TAG" <<'PY'
+            draft_ids="$(python3 - "$TAG" "$releases_file" <<'PY'
           import json, sys
-          tag = sys.argv[1]
-          pages = json.load(sys.stdin)
+          tag, releases_path = sys.argv[1], sys.argv[2]
+          with open(releases_path, encoding='utf-8') as fh:
+              pages = json.load(fh)
           for page in pages:
               for rel in page:
                   if rel.get('tag_name') == tag and rel.get('draft', False):
