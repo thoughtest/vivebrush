@@ -4,7 +4,7 @@
 
 ## 개발 및 서명 상태
 
-현재 버전은 **v0.2.0 / 빌드 4**입니다. 소스와 릴리즈는 공개 저장소에서 제공하며, 업데이트 확인에 GitHub 로그인이 필요하지 않습니다. 앱 내 업데이트 확인·다운로드·설치·재시작과 수동 색 선택을 지원합니다. 변경 사항은 [릴리즈 노트](RELEASE_NOTES.md)를 확인하세요.
+현재 버전은 **v0.2.1 / 빌드 5**입니다. 소스와 릴리즈는 공개 저장소에서 제공하며, 업데이트 확인에 GitHub 로그인이 필요하지 않습니다. 앱 내 업데이트 확인·다운로드·설치·재시작과 수동 색 선택, 안전 영역 기반 도구 모음 및 포커스·Space 전환 시 판서 안전 종료를 지원합니다. 변경 사항은 [릴리즈 노트](RELEASE_NOTES.md)를 확인하세요.
 
 이 프로젝트는 개인 Mac에서 다음 두 종류의 서명을 사용합니다.
 
@@ -64,11 +64,12 @@ xcode-select --install
 Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrush: Run**을 선택하세요. 기본 빌드는 `⇧⌘B`입니다. Swift 확장 프로그램은 코드 편집에 권장되며 터미널 실행에는 필요하지 않습니다.
 
 ```sh
-./scripts/build.sh          # build/ViveBrush.app 생성
-./scripts/run.sh release    # 최적화 빌드 후 실행
-./scripts/test.sh           # 드로잉, 업데이트 설정·오류 처리, 오래된 패키지 차단 검증
-./scripts/package.sh        # Apple Silicon용 DMG, APP ZIP, 체크섬 생성
-./scripts/verify-release.sh # 피드 생성 후 공개 키로 서명·체크섬·앱 번들 검증
+./scripts/build.sh                        # build/ViveBrush.app 생성 (AppIcon.png 있으면 AppIcon.icns 포함)
+./scripts/run.sh release                  # 최적화 빌드 후 실행
+./scripts/test.sh                         # 드로잉, 업데이터, 앱 수명 주기, 앱캐스트 검증
+./scripts/package.sh                      # Apple Silicon용 DMG, APP ZIP, 체크섬 생성
+./scripts/verify-release.sh --package-only # 서명 전 패키지 체크섬·메타데이터·아이콘·코드 서명·arm64 검증
+./scripts/verify-release.sh               # 피드 생성 후 공개 키로 서명·체크섬·아이콘·앱 번들 검증
 ```
 
 배포 파일은 `dist/<버전>/`에 생성됩니다. 패키징은 별도 `build/arm64/ViveBrush.app`을 사용하므로 기본 개발 앱이 실행 중이어도 가능합니다. `./scripts/build.sh release arm64`로 arm64 앱 번들만 만들 수도 있습니다. 패키지 버전은 `Resources/Info.plist`의 `CFBundleShortVersionString`을 따릅니다.
@@ -97,11 +98,13 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 ## 동작과 파일 구성
 
-- [ViveBrushApp.swift](Sources/ViveBrush/ViveBrushApp.swift): 메뉴 막대 앱, 전역 토글, 키 입력, 투명 NSWindow와 모드 전환.
-- [ContentView.swift](Sources/ViveBrush/ContentView.swift): 투명 SwiftUI Canvas, 선·색상 상태, 간단한 도구 모음.
+- [ViveBrushApp.swift](Sources/ViveBrush/ViveBrushApp.swift): `@main` 앱 진입점과 메뉴 막대 UI(`MenuBarExtra`).
+- [AppController.swift](Sources/ViveBrush/AppController.swift): 전역 단축키, 키 입력 처리, 투명 NSWindow, 포커스·Space 전환 복귀 및 모드 전환.
+- [ContentView.swift](Sources/ViveBrush/ContentView.swift): 투명 SwiftUI Canvas, 선·색상 상태, 안전 영역 기반 도구 모음.
 - [AppUpdater.swift](Sources/ViveBrush/AppUpdater.swift): 업데이트 창과 Sparkle 연결. 토큰을 읽거나 저장하지 않습니다.
-- [Info.plist](Resources/Info.plist): 앱 번들 식별자, 최소 OS, `LSUIElement` 설정.
-- [scripts](scripts): Swift Package를 빌드하고 실행 가능한 `.app`으로 포장하는 스크립트.
+- [Info.plist](Resources/Info.plist): 앱 번들 식별자, 최소 OS, 아이콘, `LSUIElement` 설정.
+- [AppIcon.png](Resources/AppIcon.png): 빌드 시 `AppIcon.icns`로 변환되는 1024×1024 앱 아이콘 원본.
+- [scripts](scripts): Swift Package를 빌드·테스트하고 실행 가능한 `.app` 및 릴리즈 패키지로 포장·검증하는 스크립트.
 
 연결된 화면마다 전체 `NSScreen.frame` 크기의 투명한 창을 만들며 메뉴 막대·Dock 영역도 덮습니다. 창에는 선과 도구 모음만 그리며 밑의 화면은 실시간으로 보입니다. 여러 화면의 선은 하나의 그리기 순서로 실행 취소됩니다. 디스플레이 구성이 바뀌면 판서를 종료합니다.
 
@@ -122,10 +125,12 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 ## 업데이트 배포
 
-1. `Info.plist`의 표시 버전과 빌드 번호를 모두 올립니다. 빌드 번호는 항상 증가해야 합니다.
+### 로컬 Mac 수동 배포
+
+1. `Resources/Info.plist`의 표시 버전과 빌드 번호를 모두 올리고, `RELEASE_NOTES.md` 상단에 `# ViveBrush <버전>` 섹션을 작성합니다. 빌드 번호는 항상 증가해야 합니다.
 2. `./scripts/package.sh`로 arm64 앱과 패키지를 생성합니다.
-3. `./scripts/create-appcast.sh 'https://github.com/thoughtest/vivebrush/releases/download/v<버전>/ViveBrush-<버전>-arm64.app.zip'`로 ZIP과 업데이트 피드에 서명합니다. 결과는 `dist/<버전>/appcast.xml`입니다.
-4. `./scripts/verify-release.sh`로 실제 ZIP 내부의 버전·공개 키, ZIP/피드 서명, 체크섬, arm64 앱 코드 서명을 검증합니다. 개인 키나 키체인 접근 없이 실행됩니다. 소스 설정과 패키지가 다르면 피드 생성과 검증 모두 중단하므로 먼저 다시 패키징하세요.
+3. `./scripts/create-appcast.sh 'https://github.com/thoughtest/vivebrush/releases/download/v<버전>/ViveBrush-<버전>-arm64.app.zip'`로 ZIP과 업데이트 피드에 서명합니다. 결과는 `dist/<버전>/appcast.xml`입니다. `<description>`은 `RELEASE_NOTES.md`의 해당 버전 섹션에서 자동으로 읽으며(`--notes` 또는 `VIVEBRUSH_RELEASE_NOTES`로 재정의 가능), 로컬 키체인(`com.vivebrush.app.updates`) 또는 헤드리스 `SPARKLE_ED_KEY_FILE` / `SPARKLE_PRIVATE_KEY` 서명을 지원합니다.
+4. `./scripts/verify-release.sh`로 실제 ZIP 내부의 버전·공개 키·`AppIcon.icns`, ZIP/피드 서명, 3개 항목 체크섬, arm64 앱 코드 서명을 검증합니다. 개인 키나 키체인 접근 없이 실행됩니다. 소스 설정과 패키지가 다르면 피드 생성과 검증 모두 중단하므로 먼저 다시 패키징하세요.
 5. 해당 버전의 태그와 GitHub 릴리즈를 만들고 DMG, APP ZIP, `appcast.xml`, `SHA256SUMS.txt`를 업로드합니다.
 6. 게시한 파일을 검증한 뒤 서명된 `appcast.xml`을 `updates/appcast.xml`로 그대로 복사하여 main에 커밋·push합니다. 서명 후 XML 내용을 편집하면 서명이 무효화됩니다.
 
@@ -133,13 +138,36 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 배포 파일에 서명할 때는 macOS가 `sign_update`의 키체인 접근을 요청할 수 있습니다. 배포 담당자가 Mac 로그인 암호를 해당 시스템 창에 직접 입력해 허용합니다. 앱을 설치하거나 업데이트하는 사용자에게는 이 서명 개인 키와 키체인 암호가 필요하지 않습니다.
 
+### GitHub Actions CI 및 Release Bot
+
+- **CI ([ci.yml](.github/workflows/ci.yml))**: `pull_request`, `main` push, 수동 실행(`workflow_dispatch`) 시 `macos-14`에서 `swift package resolve`, `./scripts/test.sh`, `./scripts/package.sh`, `./scripts/verify-release.sh --package-only`를 실행하고 `dist/*` 아티팩트를 업로드합니다.
+- **Release Bot ([release.yml](.github/workflows/release.yml))**: `v*` 태그 push 또는 수동 실행(`mode`: `draft-release` / `publish` / `verify-only`, 선택 입력 `version_tag`) 시 `macos-14`에서 태그 버전과 `Resources/Info.plist`·`RELEASE_NOTES.md` 일치를 검증한 뒤 테스트와 패키징을 수행합니다.
+  - **`SPARKLE_PRIVATE_KEY` Secret이 설정된 경우**: `./scripts/create-appcast.sh`가 임시 `chmod 600` 키 파일(`--ed-key-file`)로 ZIP과 `appcast.xml`에 서명하고 `scripts/verify-signature.swift`와 `./scripts/verify-release.sh`로 검증합니다. `verify-only`에서는 아티팩트만 업로드하며, `draft-release`는 Draft 릴리즈로, 태그 push 또는 `publish`는 정식 GitHub Release로 생성·갱신한 뒤 `updates/appcast.xml` 변경분을 `chore/appcast-<태그>` PR로 열어 `main`에 제안합니다.
+  - **`SPARKLE_PRIVATE_KEY` Secret이 없는 경우(선택 사항)**: `./scripts/verify-release.sh --package-only`로 서명 전 패키지만 검증합니다. `verify-only`에서는 CI 아티팩트와 요약을 남기며, 그 외 모드에서는 **서명 없는 릴리즈를 Latest로 게시하거나 `updates/appcast.xml`을 수정하지 않고** DMG, APP ZIP, 2개 항목 `SHA256SUMS.txt`와 설정 안내만 포함한 **Draft** GitHub Release를 생성·갱신합니다.
+
+GitHub Actions에서 서명된 릴리즈 자동화를 사용하려면 기존 배포 담당 Mac에서 개인 키를 내보내 GitHub Repository Secrets의 `SPARKLE_PRIVATE_KEY`에 등록한 뒤 임시 파일을 즉시 삭제하세요. (`SPARKLE_PRIVATE_KEY`를 설정하지 않아도 CI와 Draft 패키징 검증은 정상 동작합니다.)
+
+```sh
+./.build/artifacts/sparkle/Sparkle/bin/generate_keys --account com.vivebrush.app.updates -x /tmp/sparkle_private.key
+# /tmp/sparkle_private.key 내용을 GitHub Secret(SPARKLE_PRIVATE_KEY)에 저장한 뒤 즉시 삭제
+rm -f /tmp/sparkle_private.key
+```
+
 ## 검증
 
-`./scripts/test.sh`는 드로잉·투명 배경 8개 검사, Debug/Release 양쪽의 업데이트 주소·상태 메시지 검사, 오래된 패키지와 잘못된 다운로드 주소를 차단하는 5개 회귀 테스트를 실행합니다.
+`./scripts/test.sh`는 다음 네 가지 검사를 순서대로 실행합니다.
+
+- `DrawingStateChecks`: 드로잉·색 선택·투명 배경 8개 검사 (`Tests/DrawingStateChecks.swift`)
+- `AppUpdaterChecks`: Debug/Release 양쪽의 업데이트 피드 URL·설정 검증 및 오류 메시지 검사 (`Tests/AppUpdaterChecks.swift`)
+- `AppLifecycleChecks`: 안전 영역 도구 모음 상단 여백, 단축키 액션, 대기 모드 전환 수명 주기 검사 (`Tests/AppLifecycleChecks.swift`)
+- `Tests/AppcastChecks.py`: `RELEASE_NOTES.md` 버전별 노트 추출, 오래된 패키지 메타데이터·잘못된 URL·누락된 키/노트 차단 및 헤드리스 서명 경로 회귀 검사
 
 개인 Mac에서 실제 서명 키와 로컬 HTTP 피드로 최신 버전 안내, 변조된 피드 차단, 설치 연기 후 재시도, **0.1.99 / 빌드 2 → 0.2.0 / 빌드 4 다운로드·설치·재시작**을 확인했습니다. 로컬 HTTP 피드 지정은 Debug 빌드의 `VIVEBRUSH_TEST_FEED` 환경 변수로만 허용하며 Release 빌드는 HTTPS 피드를 사용합니다. 테스트용 앱과 피드는 `build/`에만 생성하고 배포하지 않습니다.
 
-`./scripts/verify-release.sh`는 개인 키 없이 공개 키로 ZIP과 피드의 Ed25519 서명, 체크섬, 패키지 내부 버전·키, arm64 아키텍처, 앱 코드 서명을 검증합니다. `./scripts/verify-release.sh /path/to/downloaded-assets`로 다운로드한 릴리즈도 검증할 수 있습니다.
+`./scripts/verify-release.sh`는 두 가지 검증 모드를 제공합니다.
+
+- `./scripts/verify-release.sh --package-only [디렉토리]`: 서명 전 패키지에 대해 DMG + APP ZIP 2개 항목 `SHA256SUMS.txt`, `Info.plist` 메타데이터 일치, `AppIcon.icns` 포함 여부, `codesign --verify --deep --strict`, `arm64` 아키텍처를 검증합니다.
+- `./scripts/verify-release.sh [디렉토리]`: 기본 전체 릴리즈 모드로 DMG + APP ZIP + `appcast.xml` 3개 항목 `SHA256SUMS.txt`, 공개 키 기반 Ed25519 피드/ZIP 서명, 메타데이터, `AppIcon.icns`, 앱 코드 서명, `arm64` 아키텍처를 검증합니다. 다운로드한 릴리즈 디렉토리 경로를 인수로 전달해 검증할 수도 있습니다.
 
 ## 수동 확인
 

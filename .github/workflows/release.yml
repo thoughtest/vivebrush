@@ -1,0 +1,320 @@
+name: Release Bot
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Release mode
+        required: true
+        default: draft-release
+        type: choice
+        options:
+          - draft-release
+          - publish
+          - verify-only
+      version_tag:
+        description: Version tag (e.g. v0.2.1). Defaults to v<CFBundleShortVersionString>.
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate version tag and release notes
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_VERSION_TAG: ${{ inputs.version_tag }}
+        run: |
+          plist_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            tag="$REF_NAME"
+            mode="publish"
+          else
+            mode="${INPUT_MODE:-draft-release}"
+            if [[ -n "${INPUT_VERSION_TAG:-}" ]]; then
+              tag="$INPUT_VERSION_TAG"
+            else
+              tag="v${plist_version}"
+            fi
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version tag '$tag'. Expected vX.Y.Z." >&2
+            exit 1
+          fi
+
+          expected_version="${tag#v}"
+          if [[ "$expected_version" != "$plist_version" ]]; then
+            echo "Tag version '$expected_version' ($tag) does not match Resources/Info.plist CFBundleShortVersionString '$plist_version'." >&2
+            exit 1
+          fi
+
+          notes_file="${RUNNER_TEMP}/release-notes.md"
+          python3 - "$expected_version" "$notes_file" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          version, out_file = sys.argv[1], Path(sys.argv[2])
+          heading_re = re.compile(rf'^#\s+ViveBrush\s+{re.escape(version)}$')
+          lines = Path('RELEASE_NOTES.md').read_text(encoding='utf-8').splitlines()
+          in_section = False
+          section = []
+          for line in lines:
+              stripped = line.strip()
+              if not in_section:
+                  if heading_re.match(stripped):
+                      in_section = True
+                  continue
+              if re.match(r'^#\s+', stripped):
+                  break
+              section.append(line)
+          if not in_section:
+              raise SystemExit(f"RELEASE_NOTES.md is missing section '# ViveBrush {version}'.")
+          body = '\n'.join(section).strip()
+          if not body:
+              raise SystemExit(f"RELEASE_NOTES.md section '# ViveBrush {version}' is empty.")
+          out_file.write_text(body + '\n', encoding='utf-8')
+          PY
+          ./scripts/create-appcast.sh --print-notes > /dev/null
+
+          is_publish="false"
+          is_verify_only="false"
+          if [[ "$mode" == "publish" ]]; then
+            is_publish="true"
+          elif [[ "$mode" == "verify-only" ]]; then
+            is_verify_only="true"
+          fi
+
+          {
+            echo "version=${expected_version}"
+            echo "tag=${tag}"
+            echo "mode=${mode}"
+            echo "is_publish=${is_publish}"
+            echo "is_verify_only=${is_verify_only}"
+            echo "notes_file=${notes_file}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Detect Sparkle signing key
+        id: signing
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [[ -n "${SPARKLE_PRIVATE_KEY//[[:space:]]/}" ]]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve Swift dependencies
+        run: swift package resolve
+
+      - name: Run checks
+        run: ./scripts/test.sh
+
+      - name: Package arm64 release
+        run: ./scripts/package.sh
+
+      - name: Sign appcast and verify full release
+        if: steps.signing.outputs.has_key == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ViveBrush-${VERSION}-arm64.app.zip"
+          ./scripts/create-appcast.sh "$download_url"
+          ./scripts/verify-release.sh
+
+      - name: Verify unsigned package only
+        if: steps.signing.outputs.has_key != 'true'
+        run: ./scripts/verify-release.sh --package-only
+
+      - name: Upload verification artifacts
+        if: steps.meta.outputs.is_verify_only == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vivebrush-verify-${{ steps.meta.outputs.tag }}-${{ github.run_id }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Write verification-only summary
+        if: steps.meta.outputs.is_verify_only == 'true'
+        env:
+          HAS_KEY: ${{ steps.signing.outputs.has_key }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          {
+            echo "## ViveBrush ${TAG} (verify-only)"
+            echo ""
+            if [[ "$HAS_KEY" == "true" ]]; then
+              echo "- Signed appcast generated and verified via \`./scripts/verify-release.sh\`."
+            else
+              echo "- \`SPARKLE_PRIVATE_KEY\` is not set; verified packaged artifacts via \`./scripts/verify-release.sh --package-only\`."
+              echo "- No GitHub Release or \`updates/appcast.xml\` PR was created."
+            fi
+            echo "- Uploaded \`dist/${VERSION}/\` as a workflow artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prepare unsigned draft release notes
+        if: steps.signing.outputs.has_key != 'true' && steps.meta.outputs.is_verify_only != 'true'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          NOTES_FILE: ${{ steps.meta.outputs.notes_file }}
+        run: |
+          cat > "${RUNNER_TEMP}/unsigned-draft-notes.md" <<EOF
+          > [!WARNING]
+          > **Unsigned Draft Release**: \`SPARKLE_PRIVATE_KEY\` GitHub Secret is not configured, so \`appcast.xml\` was not signed and this release has been kept as a **Draft**. Unsigned releases are never published as Latest and never modify \`updates/appcast.xml\`.
+
+          ### How to enable signed CI releases
+          1. On the release Mac holding the \`com.vivebrush.app.updates\` Keychain key, export the Ed25519 private key:
+             \`\`\`sh
+             ./.build/artifacts/sparkle/Sparkle/bin/generate_keys --account com.vivebrush.app.updates -x /tmp/sparkle_private.key
+             \`\`\`
+          2. Add the contents of \`/tmp/sparkle_private.key\` as the \`SPARKLE_PRIVATE_KEY\` repository secret, then immediately delete \`/tmp/sparkle_private.key\`:
+             \`\`\`sh
+             rm -f /tmp/sparkle_private.key
+             \`\`\`
+          3. Re-run this workflow (or sign locally with \`./scripts/package.sh && ./scripts/create-appcast.sh https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ViveBrush-${VERSION}-arm64.app.zip && ./scripts/verify-release.sh\`).
+
+          ---
+
+          EOF
+          cat "$NOTES_FILE" >> "${RUNNER_TEMP}/unsigned-draft-notes.md"
+
+      - name: Create or update GitHub Release
+        if: steps.meta.outputs.is_verify_only != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_KEY: ${{ steps.signing.outputs.has_key }}
+          IS_PUBLISH: ${{ steps.meta.outputs.is_publish }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          NOTES_FILE: ${{ steps.meta.outputs.notes_file }}
+        run: |
+          if [[ "$HAS_KEY" == "true" ]]; then
+            release_title="ViveBrush ${VERSION}"
+            release_notes_file="${NOTES_FILE}"
+            assets=(
+              "dist/${VERSION}/ViveBrush-${VERSION}-arm64.dmg"
+              "dist/${VERSION}/ViveBrush-${VERSION}-arm64.app.zip"
+              "dist/${VERSION}/appcast.xml"
+              "dist/${VERSION}/SHA256SUMS.txt"
+            )
+            if [[ "$IS_PUBLISH" == "true" ]]; then
+              draft_flag="--draft=false"
+            else
+              draft_flag="--draft"
+            fi
+          else
+            # Never publish an unsigned release as Latest and never attach appcast.xml.
+            release_title="ViveBrush ${VERSION} (Draft - Unsigned)"
+            release_notes_file="${RUNNER_TEMP}/unsigned-draft-notes.md"
+            assets=(
+              "dist/${VERSION}/ViveBrush-${VERSION}-arm64.dmg"
+              "dist/${VERSION}/ViveBrush-${VERSION}-arm64.app.zip"
+              "dist/${VERSION}/SHA256SUMS.txt"
+            )
+            draft_flag="--draft"
+          fi
+
+          existing_status="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq "[.[] | select(.tag_name == \"${TAG}\")] | if length == 0 then \"none\" elif .[0].draft then \"draft\" else \"published\" end")"
+          if [[ "$existing_status" == "draft" ]]; then
+            for draft_id in $(gh api "repos/${GITHUB_REPOSITORY}/releases" --jq ".[] | select(.tag_name == \"${TAG}\" and .draft) | .id"); do
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${draft_id}" >/dev/null
+            done
+            existing_status="none"
+          fi
+
+          if [[ "$existing_status" == "published" ]]; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            gh release edit "$TAG" "$draft_flag" --title "$release_title" --notes-file "$release_notes_file"
+          elif [[ "$HAS_KEY" == "true" && "$IS_PUBLISH" == "true" ]]; then
+            gh release create "$TAG" "${assets[@]}" \
+              --target "$GITHUB_SHA" \
+              --title "$release_title" \
+              --notes-file "$release_notes_file"
+          else
+            gh release create "$TAG" "${assets[@]}" --draft \
+              --target "$GITHUB_SHA" \
+              --title "$release_title" \
+              --notes-file "$release_notes_file"
+          fi
+
+          release_url="$(gh release list --limit 100 --json tagName,url --jq "[.[] | select(.tagName == \"${TAG}\")][0].url")"
+          {
+            echo "## ViveBrush ${TAG} Release"
+            echo ""
+            if [[ "$HAS_KEY" == "true" && "$IS_PUBLISH" == "true" ]]; then
+              echo "- **Status**: Published (signed with Sparkle Ed25519)"
+            elif [[ "$HAS_KEY" == "true" ]]; then
+              echo "- **Status**: Draft (signed with Sparkle Ed25519)"
+            else
+              echo "- **Status**: Draft (unsigned — \`SPARKLE_PRIVATE_KEY\` secret is absent)"
+              echo "- **Next steps**: Export your Keychain key via \`./.build/artifacts/sparkle/Sparkle/bin/generate_keys --account com.vivebrush.app.updates -x /tmp/sparkle_private.key\`, store it in \`SPARKLE_PRIVATE_KEY\` (and delete \`/tmp/sparkle_private.key\`), or sign locally with \`./scripts/create-appcast.sh\`."
+            fi
+            echo "- **Release**: ${release_url}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update appcast PR on main
+        if: steps.signing.outputs.has_key == 'true' && steps.meta.outputs.is_publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          cp "dist/${VERSION}/appcast.xml" "${RUNNER_TEMP}/signed-appcast.xml"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin +refs/heads/main:refs/remotes/origin/main
+          branch="chore/appcast-${TAG}"
+          git checkout -B "$branch" origin/main
+          cp "${RUNNER_TEMP}/signed-appcast.xml" updates/appcast.xml
+          if git diff --quiet -- updates/appcast.xml; then
+            echo "updates/appcast.xml on main is already up to date."
+            {
+              echo "- **Appcast PR**: Not needed (\`updates/appcast.xml\` on \`main\` already matches \`${TAG}\`)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git add updates/appcast.xml
+          git commit -m "chore: update appcast.xml for ${TAG}"
+          git push --force origin "$branch"
+
+          pr_url="$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // ""')"
+          pr_body="Updates \`updates/appcast.xml\` with the signed Sparkle appcast for \`${TAG}\` (copied verbatim from \`./scripts/create-appcast.sh\`)."
+          if [[ -z "$pr_url" ]]; then
+            if ! pr_url="$(gh pr create --base main --head "$branch" --title "chore: update appcast.xml for ${TAG}" --body "$pr_body" 2>"${RUNNER_TEMP}/pr_err.txt")"; then
+              echo "::warning::Branch '${branch}' was pushed, but GitHub Actions could not open a PR automatically: $(cat "${RUNNER_TEMP}/pr_err.txt")"
+              {
+                echo "- **Appcast Branch**: \`${branch}\` pushed, but auto-PR creation is disabled in repo Actions settings. Open a PR from \`${branch}\` into \`main\` manually."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          else
+            gh pr edit "$pr_url" --title "chore: update appcast.xml for ${TAG}" --body "$pr_body" >/dev/null
+          fi
+          {
+            echo "- **Appcast PR**: ${pr_url}"
+          } >> "$GITHUB_STEP_SUMMARY"

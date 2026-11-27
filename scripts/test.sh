@@ -19,4 +19,10 @@ for configuration in debug release; do
         -o "$test_dir/AppUpdaterChecks"
     "$test_dir/AppUpdaterChecks"
 done
+swiftc -parse-as-library -target "$(uname -m)-apple-macosx14.0" \
+    -F "$framework_dir" -framework Sparkle -Xlinker -rpath -Xlinker "$framework_dir" \
+    Sources/ViveBrush/AppController.swift Sources/ViveBrush/ContentView.swift \
+    Sources/ViveBrush/AppUpdater.swift Tests/AppLifecycleChecks.swift \
+    -o "$test_dir/AppLifecycleChecks"
+"$test_dir/AppLifecycleChecks"
 python3 Tests/AppcastChecks.py

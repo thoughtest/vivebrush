@@ -69,7 +69,12 @@ struct ContentView: View {
     @ObservedObject var drawing: DrawingState
     @ViewState private var isDragging = false
     let displayID: CGDirectDisplayID
+    var toolbarTopPadding: CGFloat = 28
     let onExit: () -> Void
+
+    static func toolbarTopPadding(screenFrame: CGRect, visibleFrame: CGRect, safeAreaTop: CGFloat) -> CGFloat {
+        max(28, max(safeAreaTop, max(0, screenFrame.maxY - visibleFrame.maxY)) + 12)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -94,9 +99,10 @@ struct ContentView: View {
                     isDragging = false
                     drawing.finishStroke()
                 })
+            .onDisappear { isDragging = false }
             .accessibilityLabel("화면 판서 영역")
 
-            toolbar.padding(.top, 28)
+            toolbar.padding(.top, toolbarTopPadding)
         }
         .background(.clear)
         .clipped()
@@ -133,6 +139,7 @@ struct ContentView: View {
                 .accessibilityLabel("실행 취소")
             Button(action: drawing.clear) { Image(systemName: "trash") }
                 .help("모두 지우기 (Delete)")
+                .disabled(drawing.strokes.isEmpty && drawing.currentStroke == nil)
                 .accessibilityLabel("모두 지우기")
             Divider().frame(height: 20)
             Button("완료  Esc", action: onExit)
@@ -143,13 +150,19 @@ struct ContentView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background(.black.opacity(0.82), in: Capsule())
+        .background {
+            Capsule()
+                .fill(.black.opacity(0.82))
+                .contentShape(Capsule())
+                .gesture(DragGesture(minimumDistance: 0))
+        }
         .colorScheme(.dark)
         .fixedSize()
     }
 
     private func render(_ stroke: Stroke, in context: inout GraphicsContext) {
-        guard let first = stroke.points.first else { return }
+        guard let first = stroke.points.first,
+              DrawingState.palette.indices.contains(stroke.colorIndex) else { return }
         let color = DrawingState.palette[stroke.colorIndex]
         if stroke.points.count == 1 {
             let width = DrawingState.lineWidth

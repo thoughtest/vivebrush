@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-verify:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Swift dependencies
+        run: swift package resolve
+
+      - name: Run checks
+        run: ./scripts/test.sh
+
+      - name: Package arm64 release
+        run: ./scripts/package.sh
+
+      - name: Verify packaged bundle
+        run: ./scripts/verify-release.sh --package-only
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vivebrush-dist-${{ github.run_id }}
+          path: dist/*
+          if-no-files-found: error
