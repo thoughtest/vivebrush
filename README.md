@@ -140,8 +140,8 @@ Cursor / Windsurf에서는 폴더를 열고 **Terminal → Run Task → ViveBrus
 
 ### GitHub Actions CI 및 Release Bot
 
-- **CI ([ci.yml](.github/workflows/ci.yml))**: `pull_request`, `main` push, 수동 실행(`workflow_dispatch`) 시 `macos-14`에서 `swift package resolve`, `./scripts/test.sh`, `./scripts/package.sh`, `./scripts/verify-release.sh --package-only`를 실행하고 `dist/*` 아티팩트를 업로드합니다.
-- **Release Bot ([release.yml](.github/workflows/release.yml))**: `v*` 태그 push 또는 수동 실행(`mode`: `draft-release` / `publish` / `verify-only`, 선택 입력 `version_tag`) 시 `macos-14`에서 태그 버전과 `Resources/Info.plist`·`RELEASE_NOTES.md` 일치를 검증한 뒤 테스트와 패키징을 수행합니다.
+- **CI ([ci.yml](.github/workflows/ci.yml))**: `pull_request`, `main` push, 수동 실행(`workflow_dispatch`) 시 `macos-15`에서 `swift package resolve`, `./scripts/test.sh`, `./scripts/package.sh`, `./scripts/verify-release.sh --package-only`를 실행하고 `dist/*` 아티팩트를 업로드합니다.
+- **Release Bot ([release.yml](.github/workflows/release.yml))**: `v*` 태그 push 또는 수동 실행(`mode`: `draft-release` / `publish` / `verify-only`, 선택 입력 `version_tag`) 시 `macos-15`에서 태그 버전과 `Resources/Info.plist`·`RELEASE_NOTES.md` 일치를 검증한 뒤 테스트와 패키징을 수행합니다.
   - **`SPARKLE_PRIVATE_KEY` Secret이 설정된 경우**: `./scripts/create-appcast.sh`가 임시 `chmod 600` 키 파일(`--ed-key-file`)로 ZIP과 `appcast.xml`에 서명하고 `scripts/verify-signature.swift`와 `./scripts/verify-release.sh`로 검증합니다. `verify-only`에서는 아티팩트만 업로드하며, `draft-release`는 Draft 릴리즈로, 태그 push 또는 `publish`는 정식 GitHub Release로 생성·갱신한 뒤 `updates/appcast.xml` 변경분을 `chore/appcast-<태그>` PR로 열어 `main`에 제안합니다.
   - **`SPARKLE_PRIVATE_KEY` Secret이 없는 경우(선택 사항)**: `./scripts/verify-release.sh --package-only`로 서명 전 패키지만 검증합니다. `verify-only`에서는 CI 아티팩트와 요약을 남기며, 그 외 모드에서는 **서명 없는 릴리즈를 Latest로 게시하거나 `updates/appcast.xml`을 수정하지 않고** DMG, APP ZIP, 2개 항목 `SHA256SUMS.txt`와 설정 안내만 포함한 **Draft** GitHub Release를 생성·갱신합니다.
 
