@@ -84,7 +84,7 @@ cleanup() {
 trap cleanup EXIT
 
 key_file="${SPARKLE_ED_KEY_FILE:-}"
-if [[ -z "$key_file" && -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
+if [[ "$print_notes" -eq 0 && -z "$key_file" && -n "${SPARKLE_PRIVATE_KEY:-}" ]]; then
     cleaned_key="${SPARKLE_PRIVATE_KEY//$'\r'/}"
     cleaned_key="${cleaned_key#"${cleaned_key%%[![:space:]]*}"}"
     cleaned_key="${cleaned_key%"${cleaned_key##*[![:space:]]}"}"
