@@ -239,34 +239,35 @@ jobs:
           fi
 
           releases_json="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases")"
-          existing_status="$(python3 - "$TAG" "$releases_json" <<'PY'
-import json, sys
-tag = sys.argv[1]
-pages = json.loads(sys.argv[2])
-matches = [rel for page in pages for rel in page if rel.get('tag_name') == tag]
-if not matches:
-    print('none')
-elif any(not rel.get('draft', False) for rel in matches):
-    print('published')
-else:
-    print('draft')
-PY
-)"
+          existing_status="$(printf '%s' "$releases_json" | python3 - "$TAG" <<'PY'
+          import json, sys
+          tag = sys.argv[1]
+          pages = json.load(sys.stdin)
+          matches = [rel for page in pages for rel in page if rel.get('tag_name') == tag]
+          if not matches:
+              print('none')
+          elif any(not rel.get('draft', False) for rel in matches):
+              print('published')
+          else:
+              print('draft')
+          PY
+          )"
           if [[ "$existing_status" == "published" && "$HAS_KEY" != "true" ]]; then
             echo "Refusing to modify already-published release ${TAG} without SPARKLE_PRIVATE_KEY." >&2
             exit 1
           fi
           if [[ "$existing_status" == "draft" ]]; then
-            for draft_id in $(python3 - "$TAG" "$releases_json" <<'PY'
-import json, sys
-tag = sys.argv[1]
-pages = json.loads(sys.argv[2])
-for page in pages:
-    for rel in page:
-        if rel.get('tag_name') == tag and rel.get('draft', False):
-            print(rel['id'])
-PY
-); do
+            draft_ids="$(printf '%s' "$releases_json" | python3 - "$TAG" <<'PY'
+          import json, sys
+          tag = sys.argv[1]
+          pages = json.load(sys.stdin)
+          for page in pages:
+              for rel in page:
+                  if rel.get('tag_name') == tag and rel.get('draft', False):
+                      print(rel['id'])
+          PY
+          )"
+            for draft_id in $draft_ids; do
               gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/${draft_id}" >/dev/null
             done
             existing_status="none"
