@@ -291,7 +291,7 @@ jobs:
               --notes-file "$release_notes_file"
           fi
 
-          release_url="$(gh release list --limit 100 --json tagName,url --jq "[.[] | select(.tagName == \"${TAG}\")][0].url")"
+          release_url="$(gh release view "$TAG" --json url --jq '.url')"
           {
             echo "## ViveBrush ${TAG} Release"
             echo ""
